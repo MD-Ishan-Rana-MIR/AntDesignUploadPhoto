@@ -1,9 +1,13 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Form, Input, Button, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const App = () => {
+  const [items, setItems] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const loader = useRef(null);
   const [fileList, setFileList] = useState(null)
   const [form] = Form.useForm();
   const handleUpload = (info) => {
@@ -12,15 +16,15 @@ const App = () => {
 
   const formData = new FormData();
 
-  const handleSubmit = async(values) => {
+  const handleSubmit = async (values) => {
     formData.append("name", values.name);
     formData.append("email", values.email);
     formData.append(`password`, values.password);
     formData.append("image", fileList[0].originFileObj);
     try {
-      let res = await axios.post(`http://localhost:5500/api/v1/user-upload`,formData,{
-        headers : {
-          "Content-Type" : `multipart/form-data`
+      let res = await axios.post(`http://localhost:5500/api/v1/user-upload`, formData, {
+        headers: {
+          "Content-Type": `multipart/form-data`
         }
       })
       console.log(res)
@@ -28,6 +32,51 @@ const App = () => {
       console.log(error)
     }
   };
+
+
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const res = await axios.get(`/api/items?page=${page}&limit=10`);
+        setItems((prev) => [...prev, ...res.data.items]);
+        setHasMore(page < res.data.totalPages);
+      } catch (err) {
+        console.error('Error fetching data', err);
+      }
+    };
+
+    fetchItems();
+  }, [page]);
+
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage((prevPage) => prevPage + 1);
+      }
+    });
+
+    if (loader.current) observer.observe(loader.current);
+
+    return () => {
+      if (loader.current) observer.unobserve(loader.current);
+    };
+  }, [hasMore]);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   return (
     <div >
 
@@ -87,6 +136,16 @@ const App = () => {
           </Button>
         </Form.Item>
       </Form>
+      <div>
+      <h1>Infinite Items</h1>
+      {items.map((item, index) => (
+        <div key={index} style={{ padding: 10, border: '1px solid #ddd' }}>
+          <h3>{item.name}</h3>
+          <p>{item.password}</p>
+        </div>
+      ))}
+      {hasMore && <div ref={loader}>Loading...</div>}
+      </div>
     </div>
   )
 }
